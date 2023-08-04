@@ -5,7 +5,7 @@ def menu():
     print("1. Registrarse")
     print("2. Iniciar sesión")
     print("3. Eliminar cuenta")
-    print("4. Desconectarse")
+    print("4. Salir")
 
 
 def user_menu():
@@ -18,7 +18,7 @@ def user_menu():
     print("6. Definir mensaje de presencia (status)")
     print("7. Enviar/recibir notificaciones")
     print("8. Definir mensaje de presencia (status)")
-    print("9. Enviar/recibir archivos")
+    print("9. Desconectarse")
 
 
 def group_chat():
