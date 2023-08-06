@@ -17,7 +17,7 @@ def user_menu():
     print("5. Participar en conversaciones grupales")
     print("6. Definir mensaje de presencia (status)")
     print("7. Enviar/recibir notificaciones")
-    print("8. Definir mensaje de presencia (status)")
+    print("8. Enviar/recibir archivos")
     print("9. Desconectarse")
 
 

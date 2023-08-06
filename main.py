@@ -1,6 +1,7 @@
 import menus
 import cliente
 import asyncio
+from cliente import Cliente
 
 '''
 Disclaimer: ChatGPT sugirió seguir la estructura de 3 principales clases:
@@ -31,7 +32,9 @@ while opcion != "4":
         jid = input('usuario: ')
         password = input('contraseña: ')
 
-        # login pendiente
+        client = Cliente(jid, password)
+        client.connect(disable_starttls=True)
+        client.process(forever=False)
 
     # eliminar cuenta
     elif opcion == "3":
