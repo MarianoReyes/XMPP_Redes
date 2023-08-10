@@ -59,12 +59,12 @@ class Cliente(slixmpp.ClientXMPP):
                 self.send_presence_subscription(
                     pto=presence['from'], ptype='subscribed')
                 await self.get_roster()
-                print(f"Accepted subscription request from {presence['from']}")
+                print(f"Suscripcion aceptada de {presence['from']}")
             except IqError as e:
                 print(
-                    f"Error accepting subscription request: {e.iq['error']['text']}")
+                    f"Error aceptando la suscripcion: {e.iq['error']['text']}")
             except IqTimeout:
-                print("No response from server.")
+                print("Sin respuesta del Servidor.")
 
     async def chat(self, message):  # mostrar chats
         if message['type'] == 'chat':
@@ -78,7 +78,7 @@ class Cliente(slixmpp.ClientXMPP):
         root = tk.Tk()
         root.withdraw()
         messagebox.showinfo(
-            "Nuevo Mensaje", f"Tienes un nuevo mensaje de {user}")
+            "Nuevo Mensaje tipo Notificacion", f"Tienes un nuevo mensaje de {user}")
         root.destroy()
 
     async def cambiar_presencia(self):  # cambiar el status
@@ -127,9 +127,9 @@ class Cliente(slixmpp.ClientXMPP):
             await self.get_roster()
         except IqError as e:
             print(
-                f"Error sending subscription request: {e.iq['error']['text']}")
+                f"Error al mandar suscrpcion: {e.iq['error']['text']}")
         except IqTimeout:
-            print("No response from server.")
+            print("Sin respuesta del servidor.")
 
     async def mostrar_status_contacto(self):  # mostrar status de los contactos
         # Extract roster items and their presence status
@@ -188,15 +188,14 @@ class Cliente(slixmpp.ClientXMPP):
 
         print("\nDetalles del contacto:")
         print(f"Usuario: {jid_to_find}")
-        print(f"Mensaje de estado: {status}")
+        print(f"Mensaje de estado/status: {status}")
         print("")
 
     async def enviar_mensaje_contacto(self):  # enviar mensaje a algun contacto
 
-        jid = await ainput('Ingrasa el JID del usairio\n')
+        jid = await ainput('Ingrasa el JID del usuario\n')
         self.actual_chat = jid
-        await aprint(f'\n===================== Espacio de chat" {jid.split("@")[0]} =====================')
-        await aprint('*Para salir, por favor presiona x')
+        await aprint('\nPresiona x y luego enter para salir\n')
         chatting = True
         while chatting:
             message = await ainput('')
@@ -211,7 +210,7 @@ class Cliente(slixmpp.ClientXMPP):
     async def salas(self, iq):  # mostrar salas
 
         if iq['type'] == 'result':
-            print('\nSalas de chat disponibles:')
+            print('\nSalas de chat:')
             for salita in iq["disco_items"]:
                 print(f'Nomrbre:{salita["name"]}')
                 print(f'JID: {salita["jid"]}')
@@ -221,7 +220,7 @@ class Cliente(slixmpp.ClientXMPP):
         try:
             await self['xep_0030'].get_items(jid="conference.alumchat.xyz")
         except (IqError, IqTimeout):
-            print("There was an error, please try again later")
+            print("Error")
 
     async def crear_room(self, roomName, nickName):  # crea una nueva sala
         self.room = roomName
@@ -233,9 +232,9 @@ class Cliente(slixmpp.ClientXMPP):
             self.room_created = True
             print("Sala de chat creada exitosamente")
         except IqError as e:
-            print(f"Error creating chat room: {e.iq['error']['text']}")
+            print(f"Error al crear la sala de chat: {e.iq['error']['text']}")
         except IqTimeout:
-            print("No response from server.")
+            print("Sin respuesta del Servidor.")
 
     async def unirse_room(self, roomName, nickName):  # unirse a una sala existente
         self.room = roomName
@@ -247,13 +246,12 @@ class Cliente(slixmpp.ClientXMPP):
             self.room_created = True
             print("Sala de chat creada exitosamente")
         except IqError as e:
-            print(f"Error creating chat room: {e.iq['error']['text']}")
+            print(f"Error al crear la sala de chat: {e.iq['error']['text']}")
         except IqTimeout:
-            print("No response from server.")
+            print("Sin respuesta del servidor.")
             return
 
-        await aprint(f'\n===================== Espacio de chat" {self.room.split("@")[0]} =====================')
-        await aprint('*Para salir, por favor presiona x')
+        await aprint('\nPresiona x y luego enter para salir\n')
         chatting = True
         while chatting:
             message = await ainput('')
@@ -329,15 +327,18 @@ class Cliente(slixmpp.ClientXMPP):
 
                 # crear room
                 if opcion == "1":
-                    nickName = input("Ingresa el nickname que deseas usar: ")
+                    nickName = input(
+                        "Ingresa el nickname que deseas usar en la sala: ")
                     room = input("Ingresa el nombre de la sala de chat: ")
                     roomName = f"{room}@conference.alumchat.xyz"
                     await self.crear_room(roomName, nickName)
 
                 # chatear en room
                 elif opcion == "2":
-                    nickName = input("Ingresa el nickname que deseas usar: ")
-                    room = input("Ingresa el nombre de la sala de chat: ")
+                    nickName = input(
+                        "Ingresa el nickname que deseas usar en la sala: ")
+                    room = input(
+                        "Ingresa el nombre de la sala de chat a la cual te conectas: ")
                     await self.unirse_room(room, nickName)
 
                 # mostrar rooms
@@ -370,3 +371,34 @@ class Cliente(slixmpp.ClientXMPP):
                 print("\nOpción NO válida, ingrese de nuevo porfavor.")
 
             await asyncio.sleep(0.1)
+
+
+class Borrar_Cliente(slixmpp.ClientXMPP):
+    def __init__(self, jid, password):
+        slixmpp.ClientXMPP.__init__(self, jid, password)
+        self.user = jid
+        self.add_event_handler("session_start", self.start)
+
+    async def start(self, event):
+        self.send_presence()
+        await self.get_roster()
+        await self.unregister()
+        self.disconnect()
+
+    async def unregister(self):
+        response = self.Iq()
+        response['type'] = 'set'
+        response['from'] = self.boundjid.user
+        fragment = ET.fromstring(
+            "<query xmlns='jabber:iq:register'><remove/></query>")
+        response.append(fragment)
+
+        try:
+            await response.send()
+            print(f"Cuenta borrada correctamente: {self.boundjid.jid}!")
+        except IqError as e:
+            print(f"Error al borrar la cuenta: {e.iq['error']['text']}")
+            self.disconnect()
+        except IqTimeout:
+            print("Sin respuesta del servidor.")
+            self.disconnect()

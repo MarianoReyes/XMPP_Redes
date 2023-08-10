@@ -1,7 +1,7 @@
 import menus
 import cliente
 import asyncio
-from cliente import Cliente
+from cliente import Cliente, Borrar_Cliente
 
 '''
 Disclaimer: ChatGPT sugirió seguir la estructura de 3 principales clases:
@@ -41,7 +41,9 @@ while opcion != "4":
         jid = input('usuario: ')
         password = input('contraseña: ')
 
-        # delete pendiente
+        client = Borrar_Cliente(jid, password)
+        client.connect(disable_starttls=True)
+        client.process(forever=False)
 
     else:
         print("\nOpción NO válida, ingrese de nuevo porfavor.")
