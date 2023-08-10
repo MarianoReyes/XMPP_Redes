@@ -36,3 +36,9 @@ def menu_status():
     print("2) Ausente")
     print("3) Ocupado")
     print("4) No molestar")
+
+
+def menu_archivos():
+    print("\nQué desea hacer? (Ingresar número de opción)")
+    print("1. Enviar archivo")
+    print("2. Recibir archivo")

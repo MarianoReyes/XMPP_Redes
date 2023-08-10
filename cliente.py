@@ -48,10 +48,13 @@ class Cliente(slixmpp.ClientXMPP):
         self.add_event_handler('message', self.chat)
         self.add_event_handler('disco_items', self.salas)
         self.add_event_handler('groupchat_message', self.chat_room)
+        self.add_event_handler('normal_message', self.recibir_notificacion)
+        self.add_event_handler('ibb_stream_start', self.recibir_archivo)
 
     # FUNCIONES DE CONTACTOS Y CHATS
 
     # aceptar mensajes entrantes
+
     async def aceptar_subscripcion(self, presence):
         if presence['type'] == 'subscribe':
             # aceptar suscriptcion
@@ -74,12 +77,62 @@ class Cliente(slixmpp.ClientXMPP):
             else:
                 self.mostrar_notificacion(user)
 
+    async def enviar_notificacion(self):  # enviar notificacion
+        jid_to_notify = input(
+            "Ingresa el JID del usuario al que deseas enviar la notificación: ")
+        message = input("Ingresa el mensaje de la notificación: ")
+
+        notification = self.Message()
+        notification['to'] = jid_to_notify
+        notification['type'] = 'normal'
+        notification['subject'] = "Notificación"
+        notification['body'] = message
+
+        try:
+            await notification.send()
+            print(f"Notificación enviada a {jid_to_notify} con éxito.")
+        except IqError as e:
+            print(f"Error al enviar la notificación: {e.iq['error']['text']}")
+        except IqTimeout:
+            print("Sin respuesta del servidor.")
+
+    async def recibir_notificacion(self, message):  # recibir notificacion
+        user = str(message['from']).split('@')[0]
+        notification = message['body']
+        print(f"Recibida notificación de {user}: {notification}")
+
     def mostrar_notificacion(self, user):  # notificacion de nuevo mensaje
         root = tk.Tk()
         root.withdraw()
         messagebox.showinfo(
             "Nuevo Mensaje tipo Notificacion", f"Tienes un nuevo mensaje de {user}")
         root.destroy()
+
+    async def enviar_archivo(self):  # enviar archivos
+        jid_to_send = input(
+            "Ingresa el JID del usuario al que deseas enviar el archivo: ")
+        file_path = input(
+            "Ingresa la ruta completa del archivo que deseas enviar: ")
+
+        try:
+            await self.send_file(jid_to_send, file_path)
+            print(f"Archivo enviado a {jid_to_send} con éxito.")
+        except IqError as e:
+            print(f"Error al enviar el archivo: {e.iq['error']['text']}")
+        except IqTimeout:
+            print("Sin respuesta del servidor.")
+
+    async def recibir_archivo(self, stream):  # recibir archivos
+        print("Recibiendo archivo...")
+        filename = stream['filename']
+        file_path = f"archivos_recibidos/{filename}"
+        try:
+            await stream.accept(file_path)
+            print(f"Archivo recibido y guardado en: {file_path}")
+        except IqError as e:
+            print(f"Error al recibir el archivo: {e.iq['error']['text']}")
+        except IqTimeout:
+            print("Sin respuesta del servidor.")
 
     async def cambiar_presencia(self):  # cambiar el status
 
@@ -356,11 +409,20 @@ class Cliente(slixmpp.ClientXMPP):
 
             # enviar o recibir notificaciones
             elif opcion == "7":
-                pass
+                await self.enviar_notificacion()
 
             # enviar o recibir archivos
             elif opcion == "8":
-                pass
+
+                menus.menu_archivos()  # menu de archivos
+                subopcion_archivos = await ainput("\n>> ")
+
+                if subopcion_archivos == "1":
+                    await self.enviar_archivo()
+                elif subopcion_archivos == "2":
+                    await self.recibir_archivo()
+                else:
+                    print("Opción inválida para enviar o recibir archivos.")
 
             # cerrar sesion
             elif opcion == "9":
