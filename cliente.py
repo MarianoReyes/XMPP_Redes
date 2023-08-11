@@ -11,9 +11,13 @@ import tkinter as tk
 from tkinter import messagebox
 import menus
 from slixmpp import Message
-
+import base64
+import math
+import os
 
 # implementacion modifica de registro simple extraido de repositorio https://github.com/xmpppy/xmpppy
+
+
 def register(client, password):
 
     jid = xmpp.JID(client)
@@ -33,6 +37,7 @@ class Cliente(slixmpp.ClientXMPP):
         self.name = jid.split('@')[0]
         self.is_connected = False
         self.actual_chat = ''
+        self.client_queue = asyncio.Queue()
 
         # generado por IA
         self.register_plugin('xep_0030')  # Service Discovery
@@ -95,31 +100,137 @@ class Cliente(slixmpp.ClientXMPP):
         await msg.send()
         print("Estado de chat activo enviado.")
 
-    async def enviar_archivo(self):  # enviar archivos
+    async def enviar_archivo(self):  # enviar archivo
         jid_to_send = input(
             "Ingresa el JID del usuario al que deseas enviar el archivo: ")
         file_path = input(
             "Ingresa la ruta completa del archivo que deseas enviar: ")
 
         try:
-            await self.send_file(jid_to_send, file_path)
-            print(f"Archivo enviado a {jid_to_send} con éxito.")
-        except IqError as e:
-            print(f"Error al enviar el archivo: {e.iq['error']['text']}")
-        except IqTimeout:
-            print("Sin respuesta del servidor.")
+            # Verifica si el archivo existe
+            if not os.path.exists(file_path):
+                print("El archivo no existe en la ruta especificada.")
+                return
 
-    async def recibir_archivo(self, stream):  # recibir archivos
-        print("Recibiendo archivo...")
-        filename = stream['filename']
-        file_path = f"archivos_recibidos/{filename}"
-        try:
-            await stream.accept(file_path)
-            print(f"Archivo recibido y guardado en: {file_path}")
-        except IqError as e:
-            print(f"Error al recibir el archivo: {e.iq['error']['text']}")
+            # Lee el archivo y codifícalo en base64
+            with open(file_path, "rb") as file:
+                encoded_data = base64.b64encode(file.read()).decode()
+
+            # Envía el archivo en fragmentos
+            # Tamaño de cada trozo (ajusta según necesidades)
+            chunk_size = 1024
+            total_chunks = math.ceil(len(encoded_data) / chunk_size)
+
+            for i in range(total_chunks):
+                start = i * chunk_size
+                end = (i + 1) * chunk_size
+                chunk = encoded_data[start:end]
+
+                # Crea un mensaje con el fragmento del archivo
+                msg = self.Message()
+                msg['to'] = jid_to_send
+                msg['type'] = 'chat'
+                msg['body'] = chunk
+
+                # Agrega información sobre el fragmento actual y el total de fragmentos
+                msg['file_fragment'] = str(i + 1)
+                msg['file_total'] = str(total_chunks)
+
+                # Envía el mensaje
+                msg.send()
+
+                # Espera brevemente antes de enviar el próximo fragmento (ajusta si es necesario)
+                await asyncio.sleep(0.1)
+
+            print(f"Archivo enviado a {jid_to_send} con éxito.")
         except IqTimeout:
             print("Sin respuesta del servidor.")
+        except Exception as e:
+            print(f"Error al enviar el archivo: {str(e)}")
+
+    async def recibir_archivo(self):  # funcion para recibir archivos
+        sender_jid = input(
+            "Ingresa el JID del usuario del que deseas recibir el archivo: ")
+        try:
+            expected_fragment = 1
+            total_fragments = None
+            received_data = b''
+            timeout_counter = 0
+
+            # Ciclo para recibir fragmentos del archivo
+            while True:
+                # Verifica si hemos recibido todos los fragmentos esperados
+                if total_fragments is not None and expected_fragment > total_fragments:
+                    break
+
+                # Espera un mensaje
+                msg = await self.wait_for_message(timeout=10, from_jid=sender_jid)
+
+                if msg is None:
+                    # Incrementa el contador de tiempo de espera
+                    timeout_counter += 1
+
+                    # Si excede un límite de tiempo, finaliza la recepción
+                    if timeout_counter > 10:  # Ajusta el límite de tiempo si es necesario
+                        print(
+                            "Tiempo de espera agotado. No se recibió ningún fragmento más del archivo.")
+                        break
+
+                    # Espera brevemente antes de intentar nuevamente
+                    await asyncio.sleep(1)
+                    continue
+
+                # Reinicia el contador de tiempo de espera
+                timeout_counter = 0
+
+                # Verifica si es un mensaje de archivo
+                if 'file_fragment' not in msg or 'file_total' not in msg:
+                    print("Mensaje recibido no contiene información de archivo.")
+                    continue
+
+                # Obtén la información sobre el fragmento
+                fragment_number = int(msg['file_fragment'])
+                if total_fragments is None:
+                    total_fragments = int(msg['file_total'])
+
+                # Verifica si el fragmento del archivo es el esperado
+                if fragment_number != expected_fragment:
+                    print(
+                        f"Se esperaba el fragmento {expected_fragment}, pero se recibió el fragmento {fragment_number}.")
+                    continue
+
+                # Decodifica y concatena el fragmento al archivo completo
+                fragment_data = base64.b64decode(msg['body'])
+                received_data += fragment_data
+
+                # Verifica si es el último fragmento
+                if fragment_number == total_fragments:
+                    # Guarda el archivo recibido en el disco
+                    file_path = f"archivos_recibidos/{sender_jid}_archivo_recibido"
+                    with open(file_path, "wb") as file:
+                        file.write(received_data)
+                    print(f"Archivo recibido y guardado en: {file_path}")
+                    break
+
+                expected_fragment += 1
+                print(
+                    f"Recibido fragmento {fragment_number} de {total_fragments}.")
+
+        except Exception as e:
+            print(f"Error al recibir el archivo: {str(e)}")
+
+    # Función para esperar mensajes entrantes, incluidos los fragmentos de archivo
+
+    async def get_next_message_or_fragment(self, sender_jid):
+        try:
+            msg = await self.client_queue.get()
+            if str(msg['from']) == sender_jid:
+                return msg
+            else:
+                return None
+        except Exception as e:
+            print(f"Error al recibir mensaje o fragmento: {str(e)}")
+            return None
 
     async def cambiar_presencia(self):  # cambiar el status
 
