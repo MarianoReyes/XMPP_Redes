@@ -10,6 +10,7 @@ from typing import Optional, Union
 import tkinter as tk
 from tkinter import messagebox
 import menus
+from slixmpp import Message
 
 
 # implementacion modifica de registro simple extraido de repositorio https://github.com/xmpppy/xmpppy
@@ -48,7 +49,6 @@ class Cliente(slixmpp.ClientXMPP):
         self.add_event_handler('message', self.chat)
         self.add_event_handler('disco_items', self.salas)
         self.add_event_handler('groupchat_message', self.chat_room)
-        self.add_event_handler('normal_message', self.recibir_notificacion)
         self.add_event_handler('ibb_stream_start', self.recibir_archivo)
 
     # FUNCIONES DE CONTACTOS Y CHATS
@@ -77,36 +77,23 @@ class Cliente(slixmpp.ClientXMPP):
             else:
                 self.mostrar_notificacion(user)
 
-    async def enviar_notificacion(self):  # enviar notificacion
-        jid_to_notify = input(
-            "Ingresa el JID del usuario al que deseas enviar la notificación: ")
-        message = input("Ingresa el mensaje de la notificación: ")
-
-        notification = self.Message()
-        notification['to'] = jid_to_notify
-        notification['type'] = 'normal'
-        notification['subject'] = "Notificación"
-        notification['body'] = message
-
-        try:
-            await notification.send()
-            print(f"Notificación enviada a {jid_to_notify} con éxito.")
-        except IqError as e:
-            print(f"Error al enviar la notificación: {e.iq['error']['text']}")
-        except IqTimeout:
-            print("Sin respuesta del servidor.")
-
-    async def recibir_notificacion(self, message):  # recibir notificacion
-        user = str(message['from']).split('@')[0]
-        notification = message['body']
-        print(f"Recibida notificación de {user}: {notification}")
-
     def mostrar_notificacion(self, user):  # notificacion de nuevo mensaje
         root = tk.Tk()
         root.withdraw()
         messagebox.showinfo(
             "Nuevo Mensaje tipo Notificacion", f"Tienes un nuevo mensaje de {user}")
         root.destroy()
+
+    async def enviar_notificacion(self, jid_to_notify, message):
+        # Enviar un mensaje de chat como notificación
+        self.send_message(mto=jid_to_notify, mbody=message, mtype='chat')
+        print(f"Notificación enviada a {jid_to_notify} con éxito.")
+
+        # Enviar un estado de chat activo
+        msg = self.make_message(mto=jid_to_notify, mtype='chat')
+        msg['chat_state'] = 'active'
+        await msg.send()
+        print("Estado de chat activo enviado.")
 
     async def enviar_archivo(self):  # enviar archivos
         jid_to_send = input(
@@ -409,7 +396,10 @@ class Cliente(slixmpp.ClientXMPP):
 
             # enviar o recibir notificaciones
             elif opcion == "7":
-                await self.enviar_notificacion()
+                jid_to_notify = input(
+                    "Ingresa el JID del usuario al que deseas enviar la notificación: ")
+                message = input("Ingresa el mensaje de la notificación: ")
+                await self.enviar_notificacion(jid_to_notify, message)
 
             # enviar o recibir archivos
             elif opcion == "8":
