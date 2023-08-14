@@ -349,7 +349,7 @@ class Cliente(slixmpp.ClientXMPP):
         await aprint('\nPresiona x y luego enter para salir\n')
         chatting = True
         while chatting:
-            message = await ainput('')
+            message = await ainput('>> ')
             if message == 'x':
                 chatting = False
                 self.actual_chat = ''
@@ -405,7 +405,7 @@ class Cliente(slixmpp.ClientXMPP):
         await aprint('\nPresiona x y luego enter para salir\n')
         chatting = True
         while chatting:
-            message = await ainput('')
+            message = await ainput('>> ')
             if message == 'x':
                 chatting = False
                 self.actual_chat = ''
