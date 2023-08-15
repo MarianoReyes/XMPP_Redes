@@ -14,7 +14,7 @@ from slixmpp import Message
 import base64
 import math
 import os
-
+from utils import *
 
 # implementacion modifica de registro simple extraido de repositorio https://github.com/xmpppy/xmpppy
 
@@ -126,7 +126,7 @@ class Cliente(slixmpp.ClientXMPP):
             else:
                 # si el mensaje es con el que chatea
                 if user == self.actual_chat.split('@')[0]:
-                    print(f'{user}: {message["body"]}')
+                    print_azul(f'{user}: {message["body"]}')
 
                 # notificacion si es otro
                 else:
@@ -135,7 +135,7 @@ class Cliente(slixmpp.ClientXMPP):
 
     # funcion generada por chat gpt para imprimir con colores
     def mostrar_notificacion(self, mensaje):
-        print(f"\033[31m{mensaje}\033[0m")
+        print_rojo(mensaje)
         print("v")
 
     def mostrar_presencia(self, presence, is_available):
