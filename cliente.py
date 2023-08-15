@@ -17,6 +17,8 @@ import os
 
 
 # implementacion modifica de registro simple extraido de repositorio https://github.com/xmpppy/xmpppy
+
+
 def register(client, password):
 
     jid = xmpp.JID(client)
@@ -102,13 +104,26 @@ class Cliente(slixmpp.ClientXMPP):
                 # contenido
                 encoded_data = file_info[1]
 
+                print("Received file:")
+                print("Extension:", extension)
+                print("Encoded data:", encoded_data)
+
                 try:
                     # decodificar archivo de base64
                     decoded_data = base64.b64decode(encoded_data)
-                    with open("archivos_recibidos/archivo_nuevo." + extension, "wb") as file:
+                    # Print first 100 bytes for debugging
+                    print("Decoded data:", decoded_data[:100])
+
+                    file_path = f"archivos_recibidos/archivo_nuevo.{extension}"
+
+                    # Use asyncio.sleep(0) to yield control to the event loop
+                    await asyncio.sleep(0)
+
+                    with open(file_path, "wb") as file:
                         file.write(decoded_data)
-                        self.mostrar_notificacion(
-                            f"Archivo recibido y guardado.{extension} de {user}")
+
+                    # self.mostrar_notificacion(
+                    #   f"Archivo recibido y guardado.{extension} de {user}")
                     print(f"Archivo recibido y guardado.{extension} de {user}")
 
                 except Exception as e:
@@ -158,19 +173,22 @@ class Cliente(slixmpp.ClientXMPP):
             self.mostrar_notificacion(notification_message)
 
     async def enviar_archivo(self, recipient_jid, file_path):
-        # se obtiene la extension del archivo
-        extension = file_path.split(".")[-1]
+        print("Enviando archivo:", file_path)
 
-        with open(file_path, "rb") as file:  # se abre el archivo
+        extension = file_path.split(".")[-1]
+        print("Extension del archivo:", extension)
+
+        with open(file_path, "rb") as file:
             file_data = file.read()
 
-        # se codifica el archivo en base64
         encoded_data = base64.b64encode(file_data).decode()
-        # se crea el mensaje con la informacion del archivo en base64
-        message = message = f"file://{extension}://{encoded_data}"
+        print("Largo del Archivo:", len(encoded_data))
+
+        message = f"file://{extension}://{encoded_data}"
+        print("Mandando mensaje:", message)
 
         self.send_message(mto=recipient_jid, mbody=message, mtype='chat')
-        print("\nArchivo enviado correctamente.")
+        print("Archivo enviado correctamente.")
 
     async def cambiar_presencia(self):  # cambiar el status
 
