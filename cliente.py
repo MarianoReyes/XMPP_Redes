@@ -39,198 +39,137 @@ class Cliente(slixmpp.ClientXMPP):
         self.actual_chat = ''
         self.client_queue = asyncio.Queue()
 
-        # generado por IA
+        # generado por IA para los diferentes plugins que se usaran
         self.register_plugin('xep_0030')  # Service Discovery
         self.register_plugin('xep_0199')  # Ping
         self.register_plugin('xep_0045')  # MUC
         self.register_plugin('xep_0085')  # Notifications
         self.register_plugin('xep_0004')  # Data Forms
         self.register_plugin('xep_0060')  # PubSub
+        self.register_plugin('xep_0066')  # Out of Band Data
+        self.register_plugin('xep_0363')  # HTTP File Upload
 
         # eventos
         self.add_event_handler('session_start', self.start)
         self.add_event_handler('subscription_request',
-                               self.aceptar_subscripcion)
+                               self.handler_presencia)
         self.add_event_handler('message', self.chat)
         self.add_event_handler('disco_items', self.salas)
         self.add_event_handler('groupchat_message', self.chat_room)
-        self.add_event_handler('ibb_stream_start', self.recibir_archivo)
 
     # FUNCIONES DE CONTACTOS Y CHATS
 
     # aceptar mensajes entrantes
 
-    async def aceptar_subscripcion(self, presence):
+    async def handler_presencia(self, presence):
+
+        # si se tiene solicitud
         if presence['type'] == 'subscribe':
-            # aceptar suscriptcion
             try:
                 self.send_presence_subscription(
                     pto=presence['from'], ptype='subscribed')
                 await self.get_roster()
-                print(f"Suscripcion aceptada de {presence['from']}")
+                self.mostrar_notificacion("Solicitud de suscripción aceptada de " + str(
+                    presence['from']).split('@')[0])  # se muestra una notificacion
             except IqError as e:
                 print(
-                    f"Error aceptando la suscripcion: {e.iq['error']['text']}")
+                    f"Error accepting subscription request: {e.iq['error']['text']}")
             except IqTimeout:
-                print("Sin respuesta del Servidor.")
+                print("No response from server.")
 
-    async def chat(self, message):  # mostrar chats
+        # si hay presencia
+        else:
+            # notificacion si esta logeado
+            if self.is_connected:
+                if presence['type'] == 'available':
+                    self.mostrar_presencia(presence, True)
+                elif presence['type'] == 'unavailable':
+                    self.mostrar_presencia(presence, False)
+                else:
+                    self.mostrar_presencia(presence, None)
+
+    async def chat(self, message):
+
+        # chat normal
         if message['type'] == 'chat':
+            # solo user
             user = str(message['from']).split('@')[0]
-            if user == self.actual_chat.split('@')[0]:
-                print(f'{user}: {message["body"]}')
-            else:
-                self.mostrar_notificacion(user)
 
-    def mostrar_notificacion(self, user):  # notificacion de nuevo mensaje
+            # recibir archivos
+            if message['body'].startswith("file://"):
+                # info del archivo
+                file_info = message['body'][7:].split("://")
+                extension = file_info[0]
+                # contenido
+                encoded_data = file_info[1]
+
+                try:
+                    # decodificar archivo de base64
+                    decoded_data = base64.b64decode(encoded_data)
+                    with open("recibido." + extension, "wb") as file:
+                        file.write(decoded_data)
+                        self.mostrar_notificacion(
+                            f"Archivo recibido y guardado como recibido.{extension} por parte de {user}")
+
+                except Exception as e:
+                    print("\nError decoding and saving the received file:", e)
+
+            # mensajes
+            else:
+                # si el mensaje es con el que chatea
+                if user == self.actual_chat.split('@')[0]:
+                    print(f'{user}: {message["body"]}')
+
+                # notificacion si es otro
+                else:
+                    self.mostrar_notificacion(
+                        f"Tienes un nuevo mensaje de {user}")
+
+    def mostrar_notificacion(self, mensaje):
         root = tk.Tk()
         root.withdraw()
-        messagebox.showinfo(
-            "Nuevo Mensaje tipo Notificacion", f"Tienes un nuevo mensaje de {user}")
+        messagebox.showinfo("Nuevo Mensaje", mensaje)
         root.destroy()
 
-    async def enviar_notificacion(self, jid_to_notify, message):
-        # Enviar un mensaje de chat como notificación
-        self.send_message(mto=jid_to_notify, mbody=message, mtype='chat')
-        print(f"Notificación enviada a {jid_to_notify} con éxito.")
+    def mostrar_presencia(self, presence, is_available):
 
-        # Enviar un estado de chat activo
-        msg = self.make_message(mto=jid_to_notify, mtype='chat')
-        msg['chat_state'] = 'active'
-        await msg.send()
-        print("Estado de chat activo enviado.")
+        # verficaciones previas
+        if str(presence['from']).split("/")[0] != self.boundjid.bare and "conference" not in str(presence['from']):
 
-    async def enviar_archivo(self):  # enviar archivo
-        jid_to_send = input(
-            "Ingresa el JID del usuario al que deseas enviar el archivo: ")
-        file_path = input(
-            "Ingresa la ruta completa del archivo que deseas enviar: ")
-
-        try:
-            # Verifica si el archivo existe
-            if not os.path.exists(file_path):
-                print("El archivo no existe en la ruta especificada.")
-                return
-
-            # Lee el archivo y codifícalo en base64
-            with open(file_path, "rb") as file:
-                encoded_data = base64.b64encode(file.read()).decode()
-
-            # Envía el archivo en fragmentos
-            # Tamaño de cada trozo (ajusta según necesidades)
-            chunk_size = 1024
-            total_chunks = math.ceil(len(encoded_data) / chunk_size)
-
-            for i in range(total_chunks):
-                start = i * chunk_size
-                end = (i + 1) * chunk_size
-                chunk = encoded_data[start:end]
-
-                # Crea un mensaje con el fragmento del archivo
-                msg = self.Message()
-                msg['to'] = jid_to_send
-                msg['type'] = 'chat'
-                msg['body'] = chunk
-
-                # Agrega información sobre el fragmento actual y el total de fragmentos
-                msg['file_fragment'] = str(i + 1)
-                msg['file_total'] = str(total_chunks)
-
-                # Envía el mensaje
-                msg.send()
-
-                # Espera brevemente antes de enviar el próximo fragmento (ajusta si es necesario)
-                await asyncio.sleep(0.1)
-
-            print(f"Archivo enviado a {jid_to_send} con éxito.")
-        except IqTimeout:
-            print("Sin respuesta del servidor.")
-        except Exception as e:
-            print(f"Error al enviar el archivo: {str(e)}")
-
-    async def recibir_archivo(self):  # funcion para recibir archivos
-        sender_jid = input(
-            "Ingresa el JID del usuario del que deseas recibir el archivo: ")
-        try:
-            expected_fragment = 1
-            total_fragments = None
-            received_data = b''
-            timeout_counter = 0
-
-            # Ciclo para recibir fragmentos del archivo
-            while True:
-                # Verifica si hemos recibido todos los fragmentos esperados
-                if total_fragments is not None and expected_fragment > total_fragments:
-                    break
-
-                # Espera un mensaje
-                msg = await self.wait_for_message(timeout=10, from_jid=sender_jid)
-
-                if msg is None:
-                    # Incrementa el contador de tiempo de espera
-                    timeout_counter += 1
-
-                    # Si excede un límite de tiempo, finaliza la recepción
-                    if timeout_counter > 10:  # Ajusta el límite de tiempo si es necesario
-                        print(
-                            "Tiempo de espera agotado. No se recibió ningún fragmento más del archivo.")
-                        break
-
-                    # Espera brevemente antes de intentar nuevamente
-                    await asyncio.sleep(1)
-                    continue
-
-                # Reinicia el contador de tiempo de espera
-                timeout_counter = 0
-
-                # Verifica si es un mensaje de archivo
-                if 'file_fragment' not in msg or 'file_total' not in msg:
-                    print("Mensaje recibido no contiene información de archivo.")
-                    continue
-
-                # Obtén la información sobre el fragmento
-                fragment_number = int(msg['file_fragment'])
-                if total_fragments is None:
-                    total_fragments = int(msg['file_total'])
-
-                # Verifica si el fragmento del archivo es el esperado
-                if fragment_number != expected_fragment:
-                    print(
-                        f"Se esperaba el fragmento {expected_fragment}, pero se recibió el fragmento {fragment_number}.")
-                    continue
-
-                # Decodifica y concatena el fragmento al archivo completo
-                fragment_data = base64.b64decode(msg['body'])
-                received_data += fragment_data
-
-                # Verifica si es el último fragmento
-                if fragment_number == total_fragments:
-                    # Guarda el archivo recibido en el disco
-                    file_path = f"archivos_recibidos/{sender_jid}_archivo_recibido"
-                    with open(file_path, "wb") as file:
-                        file.write(received_data)
-                    print(f"Archivo recibido y guardado en: {file_path}")
-                    break
-
-                expected_fragment += 1
-                print(
-                    f"Recibido fragmento {fragment_number} de {total_fragments}.")
-
-        except Exception as e:
-            print(f"Error al recibir el archivo: {str(e)}")
-
-    # Función para esperar mensajes entrantes, incluidos los fragmentos de archivo
-
-    async def get_next_message_or_fragment(self, sender_jid):
-        try:
-            msg = await self.client_queue.get()
-            if str(msg['from']) == sender_jid:
-                return msg
+            # estado del usaurio
+            if is_available:
+                show = 'available'
+            elif is_available == False:
+                show = 'offline'
             else:
-                return None
-        except Exception as e:
-            print(f"Error al recibir mensaje o fragmento: {str(e)}")
-            return None
+                show = presence['show']
+
+            # obtener mensaje de usaurio
+            user = (str(presence['from']).split('/')[0])
+            # presencia de contactos
+            status = presence['status']
+
+            if status != '':
+                notification_message = f'{user} is {show} - {status}'
+            else:
+                notification_message = f'{user} is {show}'
+
+            # se muestra la notificacion
+            self.mostrar_notificacion(notification_message)
+
+    async def send_file(self, recipient_jid, file_path):
+        # se obtiene la extension del archivo
+        extension = file_path.split(".")[-1]
+
+        with open(file_path, "rb") as file:  # se abre el archivo
+            file_data = file.read()
+
+        # se codifica el archivo en base64
+        encoded_data = base64.b64encode(file_data).decode()
+        # se crea el mensaje con la informacion del archivo en base64
+        message = message = f"file://{extension}://{encoded_data}"
+
+        self.send_message(mto=recipient_jid, mbody=message, mtype='chat')
 
     async def cambiar_presencia(self):  # cambiar el status
 
@@ -349,7 +288,7 @@ class Cliente(slixmpp.ClientXMPP):
         await aprint('\nPresiona x y luego enter para salir\n')
         chatting = True
         while chatting:
-            message = await ainput('>> ')
+            message = await ainput('')
             if message == 'x':
                 chatting = False
                 self.actual_chat = ''
@@ -405,7 +344,7 @@ class Cliente(slixmpp.ClientXMPP):
         await aprint('\nPresiona x y luego enter para salir\n')
         chatting = True
         while chatting:
-            message = await ainput('>> ')
+            message = await ainput('')
             if message == 'x':
                 chatting = False
                 self.actual_chat = ''
@@ -448,92 +387,81 @@ class Cliente(slixmpp.ClientXMPP):
             self.disconnect()
 
     async def instancia_usuario(self):  # funcion para menu de user
+        try:
+            while self.is_connected:
 
-        while self.is_connected:
-
-            menus.user_menu()  # menu de cliente
-            opcion = await ainput("\n>> ")
-
-            # todos los contactios con estado
-            if opcion == "1":
-                await self.mostrar_status_contacto()
-
-            # agregar un nuevo usuario
-            elif opcion == "2":
-                await self.anadir_contacto()
-
-            # detalles de un usuario
-            elif opcion == "3":
-                await self.mostrar_detalles_contacto()
-
-            # chatear con usuario
-            elif opcion == "4":
-                await self.enviar_mensaje_contacto()
-
-            # rooms
-            elif opcion == "5":
-
-                menus.group_chat()  # menu de rooms
+                menus.user_menu()  # menu de cliente
                 opcion = await ainput("\n>> ")
 
-                # crear room
+                # todos los contactios con estado
                 if opcion == "1":
-                    nickName = input(
-                        "Ingresa el nickname que deseas usar en la sala: ")
-                    room = input("Ingresa el nombre de la sala de chat: ")
-                    roomName = f"{room}@conference.alumchat.xyz"
-                    await self.crear_room(roomName, nickName)
+                    await self.mostrar_status_contacto()
 
-                # chatear en room
+                # agregar un nuevo usuario
                 elif opcion == "2":
-                    nickName = input(
-                        "Ingresa el nickname que deseas usar en la sala: ")
-                    room = input(
-                        "Ingresa el nombre de la sala de chat a la cual te conectas: ")
-                    await self.unirse_room(room, nickName)
+                    await self.anadir_contacto()
 
-                # mostrar rooms
+                # detalles de un usuario
                 elif opcion == "3":
-                    await self.mostrar_rooms()
+                    await self.mostrar_detalles_contacto()
 
-                # salir de rooms
+                # chatear con usuario
                 elif opcion == "4":
-                    print("Regresando...")
-                    pass
+                    await self.enviar_mensaje_contacto()
 
-            # cambiar presencia / status
-            elif opcion == "6":
-                await self.cambiar_presencia()
+                # rooms
+                elif opcion == "5":
 
-            # enviar o recibir notificaciones
-            elif opcion == "7":
-                jid_to_notify = input(
-                    "Ingresa el JID del usuario al que deseas enviar la notificación: ")
-                message = input("Ingresa el mensaje de la notificación: ")
-                await self.enviar_notificacion(jid_to_notify, message)
+                    menus.group_chat()  # menu de rooms
+                    opcion = await ainput("\n>> ")
 
-            # enviar o recibir archivos
-            elif opcion == "8":
+                    # crear room
+                    if opcion == "1":
+                        nickName = input(
+                            "Ingresa el nickname que deseas usar en la sala: ")
+                        room = input("Ingresa el nombre de la sala de chat: ")
+                        roomName = f"{room}@conference.alumchat.xyz"
+                        await self.crear_room(roomName, nickName)
 
-                menus.menu_archivos()  # menu de archivos
-                subopcion_archivos = await ainput("\n>> ")
+                    # chatear en room
+                    elif opcion == "2":
+                        nickName = input(
+                            "Ingresa el nickname que deseas usar en la sala: ")
+                        room = input(
+                            "Ingresa el nombre de la sala de chat a la cual te conectas: ")
+                        await self.unirse_room(room, nickName)
 
-                if subopcion_archivos == "1":
-                    await self.enviar_archivo()
-                elif subopcion_archivos == "2":
-                    await self.recibir_archivo()
+                    # mostrar rooms
+                    elif opcion == "3":
+                        await self.mostrar_rooms()
+
+                    # salir de rooms
+                    elif opcion == "4":
+                        print("Regresando...")
+                        pass
+
+                # cambiar presencia / status
+                elif opcion == "6":
+                    await self.cambiar_presencia()
+
+                # enviar archivos
+                elif opcion == "7":
+                    user = input(
+                        "Ingresa el JID del usuario: ")
+                    path = input("Ingresa la ruta del archivo: ")
+                    await self.enviar_archivo(user, path)
+
+                # cerrar sesion
+                elif opcion == "8":
+                    self.disconnect()
+                    self.is_connected = False
+
                 else:
-                    print("Opción inválida para enviar o recibir archivos.")
+                    print("\nOpción NO válida, ingrese de nuevo porfavor.")
 
-            # cerrar sesion
-            elif opcion == "9":
-                self.disconnect()
-                self.is_connected = False
-
-            else:
-                print("\nOpción NO válida, ingrese de nuevo porfavor.")
-
-            await asyncio.sleep(0.1)
+                await asyncio.sleep(0.1)
+        except Exception as e:
+            print("An error occurred:", e)
 
 
 class Borrar_Cliente(slixmpp.ClientXMPP):

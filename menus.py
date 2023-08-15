@@ -16,9 +16,8 @@ def user_menu():
     print("4. Comunicacion 1 a 1 con cualquier usuario/contacto")
     print("5. Participar en conversaciones grupales")
     print("6. Definir mensaje de presencia (status)")
-    print("7. Enviar/recibir notificaciones")
-    print("8. Enviar/recibir archivos")
-    print("9. Desconectarse")
+    print("7. Enviar/recibir archivos")
+    print("8. Desconectarse")
 
 
 def group_chat():
