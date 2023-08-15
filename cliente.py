@@ -105,13 +105,14 @@ class Cliente(slixmpp.ClientXMPP):
                 try:
                     # decodificar archivo de base64
                     decoded_data = base64.b64decode(encoded_data)
-                    with open("recibido." + extension, "wb") as file:
+                    with open("archivos_recibidos/archivo_nuevo." + extension, "wb") as file:
                         file.write(decoded_data)
                         self.mostrar_notificacion(
-                            f"Archivo recibido y guardado como recibido.{extension} por parte de {user}")
+                            f"Archivo recibido y guardado.{extension} de {user}")
+                    print(f"Archivo recibido y guardado.{extension} de {user}")
 
                 except Exception as e:
-                    print("\nError decoding and saving the received file:", e)
+                    print("\nError al recibir archivo:", e)
 
             # mensajes
             else:
@@ -156,7 +157,7 @@ class Cliente(slixmpp.ClientXMPP):
             # se muestra la notificacion
             self.mostrar_notificacion(notification_message)
 
-    async def send_file(self, recipient_jid, file_path):
+    async def enviar_archivo(self, recipient_jid, file_path):
         # se obtiene la extension del archivo
         extension = file_path.split(".")[-1]
 
@@ -169,6 +170,7 @@ class Cliente(slixmpp.ClientXMPP):
         message = message = f"file://{extension}://{encoded_data}"
 
         self.send_message(mto=recipient_jid, mbody=message, mtype='chat')
+        print("\nArchivo enviado correctamente.")
 
     async def cambiar_presencia(self):  # cambiar el status
 
