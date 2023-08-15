@@ -15,9 +15,8 @@ import base64
 import math
 import os
 
+
 # implementacion modifica de registro simple extraido de repositorio https://github.com/xmpppy/xmpppy
-
-
 def register(client, password):
 
     jid = xmpp.JID(client)
