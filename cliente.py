@@ -104,15 +104,9 @@ class Cliente(slixmpp.ClientXMPP):
                 # contenido
                 encoded_data = file_info[1]
 
-                print("Received file:")
-                print("Extension:", extension)
-                print("Encoded data:", encoded_data)
-
                 try:
                     # decodificar archivo de base64
                     decoded_data = base64.b64decode(encoded_data)
-                    # Print first 100 bytes for debugging
-                    print("Decoded data:", decoded_data[:100])
 
                     file_path = f"archivos_recibidos/archivo_nuevo.{extension}"
 
@@ -122,9 +116,8 @@ class Cliente(slixmpp.ClientXMPP):
                     with open(file_path, "wb") as file:
                         file.write(decoded_data)
 
-                    # self.mostrar_notificacion(
-                    #   f"Archivo recibido y guardado.{extension} de {user}")
-                    print(f"Archivo recibido y guardado.{extension} de {user}")
+                    self.mostrar_notificacion(
+                        f"Archivo recibido y guardado .{extension} de {user}")
 
                 except Exception as e:
                     print("\nError al recibir archivo:", e)
@@ -140,11 +133,10 @@ class Cliente(slixmpp.ClientXMPP):
                     self.mostrar_notificacion(
                         f"Tienes un nuevo mensaje de {user}")
 
+    # funcion generada por chat gpt para imprimir con colores
     def mostrar_notificacion(self, mensaje):
-        root = tk.Tk()
-        root.withdraw()
-        messagebox.showinfo("Nuevo Mensaje", mensaje)
-        root.destroy()
+        print(f"\033[31m{mensaje}\033[0m")
+        print("v")
 
     def mostrar_presencia(self, presence, is_available):
 
@@ -165,9 +157,9 @@ class Cliente(slixmpp.ClientXMPP):
             status = presence['status']
 
             if status != '':
-                notification_message = f'{user} is {show} - {status}'
+                notification_message = f'{user} esta {show} - {status}'
             else:
-                notification_message = f'{user} is {show}'
+                notification_message = f'{user} esta {show}'
 
             # se muestra la notificacion
             self.mostrar_notificacion(notification_message)
