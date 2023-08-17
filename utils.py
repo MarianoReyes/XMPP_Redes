@@ -13,3 +13,11 @@ def print_amarillo(mensaje):
 
 def print_azul(mensaje):
     print(f"\033[34m{mensaje}\033[0m")
+
+
+def print_magenta(mensaje):
+    print(f"\033[35m{mensaje}\033[0m")
+
+
+def print_cyan(mensaje):
+    print(f"\033[36m{mensaje}\033[0m")
