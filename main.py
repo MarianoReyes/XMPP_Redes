@@ -1,7 +1,7 @@
-import menus
-import cliente
 import asyncio
-from cliente import Cliente, Borrar_Cliente
+import menus
+from cliente import *
+import cliente
 
 '''
 Disclaimer: ChatGPT sugirió seguir la estructura de 3 principales clases:
