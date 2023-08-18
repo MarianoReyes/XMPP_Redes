@@ -210,7 +210,7 @@ class Cliente(slixmpp.ClientXMPP):
             else:
                 print("\nOpción NO válida, ingrese de nuevo porfavor.")
 
-        print('Escribe tu estado: ')
+        print_magenta('Escribe tu estado: ')
         status_message = input('')
 
         self.status = status
@@ -475,7 +475,7 @@ class Cliente(slixmpp.ClientXMPP):
             print("An error occurred:", e)
 
 
-class Borrar_Cliente(slixmpp.ClientXMPP):
+class Borrar_Cliente(slixmpp.ClientXMPP):  # funcion para borrar un cliente
     def __init__(self, jid, password):
         slixmpp.ClientXMPP.__init__(self, jid, password)
         self.user = jid
@@ -484,10 +484,7 @@ class Borrar_Cliente(slixmpp.ClientXMPP):
     async def start(self, event):
         self.send_presence()
         await self.get_roster()
-        await self.unregister()
-        self.disconnect()
 
-    async def unregister(self):
         response = self.Iq()
         response['type'] = 'set'
         response['from'] = self.boundjid.user
@@ -504,3 +501,5 @@ class Borrar_Cliente(slixmpp.ClientXMPP):
         except IqTimeout:
             print("Sin respuesta del servidor.")
             self.disconnect()
+
+        self.disconnect()
