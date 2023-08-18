@@ -27,7 +27,6 @@ Es necesario instalar las diferentes librerias para poder correr el programa. La
 `pip install xmpppy`
 `pip install asyncio`
 `pip install aioconsole`
-`pip install tkinter`
 
 ## Ejecución del Programa
 
