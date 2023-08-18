@@ -239,7 +239,7 @@ class Cliente(slixmpp.ClientXMPP):
         contact_list = []
 
         if not contacts:
-            print("No contacts found.")
+            print("Sin contactos.")
             return
 
         for jid in contacts:
